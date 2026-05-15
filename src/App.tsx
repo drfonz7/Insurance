@@ -36,7 +36,11 @@ import {
   Loader2,
   Plus,
   CreditCard,
-  Check
+  Check,
+  Globe,
+  Lock,
+  User as UserIcon,
+  Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -672,6 +676,168 @@ const HelpCenterView = () => {
           </div>
         </div>
         <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-primary/20 rounded-full blur-[100px]"></div>
+      </div>
+    </motion.div>
+  );
+};
+
+const SettingsView = () => {
+  const [notifications, setNotifications] = useState({
+    email: true,
+    push: true,
+    sms: false
+  });
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-10"
+    >
+      <div>
+        <h2 className="font-display text-3xl font-bold text-on-surface">Account Settings</h2>
+        <p className="text-on-surface-variant mt-1">Manage your personal profile, privacy, and app preferences.</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        <div className="lg:col-span-2 space-y-8">
+          {/* Profile Section */}
+          <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="p-3 bg-primary/10 rounded-2xl text-primary">
+                <UserIcon className="w-6 h-6" />
+              </div>
+              <h3 className="font-display text-xl font-bold text-on-surface">Profile Information</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest ml-1">Full Name</label>
+                <input 
+                  type="text" 
+                  defaultValue="Andrew Tan" 
+                  className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-on-surface focus:border-primary outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest ml-1">Email Address</label>
+                <input 
+                  type="email" 
+                  defaultValue="andztan@gmail.com" 
+                  className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-on-surface focus:border-primary outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest ml-1">Phone Number</label>
+                <input 
+                  type="tel" 
+                  defaultValue="+65 9876 5432" 
+                  className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-on-surface focus:border-primary outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest ml-1">Country</label>
+                <select className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-on-surface focus:border-primary outline-none transition-all">
+                  <option>Singapore</option>
+                  <option>Malaysia</option>
+                  <option>Indonesia</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="mt-8 pt-8 border-t border-gray-50 flex justify-end">
+              <button className="bg-primary text-white px-8 py-3 rounded-xl font-bold text-sm hover:opacity-90 transition-all shadow-md shadow-primary/10">
+                Save Changes
+              </button>
+            </div>
+          </div>
+
+          {/* Privacy & Security Section */}
+          <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="p-3 bg-orange-50 rounded-2xl text-orange-600">
+                <Lock className="w-6 h-6" />
+              </div>
+              <h3 className="font-display text-xl font-bold text-on-surface">Security & Privacy</h3>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-white rounded-xl text-on-surface-variant">
+                    <Shield className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-on-surface">Two-Factor Authentication</h4>
+                    <p className="text-[11px] text-on-surface-variant">Secure your account with an extra layer of protection.</p>
+                  </div>
+                </div>
+                <button className="text-xs font-black text-primary hover:underline uppercase tracking-tighter">Enable</button>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-white rounded-xl text-on-surface-variant">
+                    <Globe className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-on-surface">Data Sharing</h4>
+                    <p className="text-[11px] text-on-surface-variant">Allow Insure Help to share insights with your medical providers.</p>
+                  </div>
+                </div>
+                <div className="w-12 h-6 bg-primary rounded-full relative cursor-pointer shadow-inner">
+                  <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-8">
+          {/* Notifications Section */}
+          <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="p-3 bg-purple-50 rounded-2xl text-purple-600">
+                <Bell className="w-6 h-6" />
+              </div>
+              <h3 className="font-display text-xl font-bold text-on-surface">Notifications</h3>
+            </div>
+            
+            <div className="space-y-6">
+              {Object.entries(notifications).map(([key, value]) => (
+                <div key={key} className="flex items-center justify-between group">
+                  <span className="text-sm font-bold text-on-surface-variant group-hover:text-primary transition-colors capitalize">{key} Alerts</span>
+                  <div 
+                    onClick={() => setNotifications(prev => ({ ...prev, [key]: !value }))}
+                    className={cn(
+                      "w-10 h-5 rounded-full relative cursor-pointer transition-colors shadow-inner",
+                      value ? "bg-primary" : "bg-gray-200"
+                    )}
+                  >
+                    <motion.div 
+                      animate={{ x: value ? 20 : 0 }}
+                      className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="bg-gray-900 p-8 rounded-[2.5rem] text-white relative overflow-hidden">
+            <h3 className="font-display text-xl font-bold mb-6 relative z-10">Advanced</h3>
+            <div className="space-y-4 relative z-10">
+              <button className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all">
+                Export My Data
+              </button>
+              <button className="w-full py-4 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all border border-red-500/30">
+                Delete Account
+              </button>
+            </div>
+            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl"></div>
+          </div>
+        </div>
       </div>
     </motion.div>
   );
@@ -1326,7 +1492,11 @@ export default function App() {
               <PricingView />
             )}
 
-            {activeTab !== 'dashboard' && activeTab !== 'claims' && activeTab !== 'pricing' && activeTab !== 'policies' && (
+            {activeTab === 'settings' && (
+              <SettingsView />
+            )}
+
+            {activeTab !== 'dashboard' && activeTab !== 'claims' && activeTab !== 'pricing' && activeTab !== 'policies' && activeTab !== 'help' && activeTab !== 'settings' && (
               <motion.div
                 key="other"
                 initial={{ opacity: 0, y: 10 }}
