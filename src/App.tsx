@@ -56,6 +56,7 @@ interface Policy {
   utilized: number;
   description: string;
   issuer: string;
+  premium: number;
 }
 
 interface ClaimSimulationResult {
@@ -96,11 +97,11 @@ interface RecommendedPlan {
 // --- Constants & API ---
 
 const INITIAL_POLICIES: Policy[] = [
-  { id: '1', name: 'Income Shield Plus', type: 'Hospital', limit: '$2,500,000', utilized: 12, description: 'Lifetime Limit', issuer: 'Income Insurance' },
-  { id: '2', name: 'Elite Health Care', type: 'Outpatient', limit: '$15,000', utilized: 65, description: 'Annual Limit', issuer: 'AIA' },
-  { id: '3', name: 'Emergency Guard', type: 'A&E', limit: 'Unlimited', utilized: 5, description: 'Co-payment applies', issuer: 'Great Eastern' },
-  { id: '4', name: 'Globetrotter Pro', type: 'Travel', limit: '$500,000', utilized: 0, description: 'Per Voyage', issuer: 'Prudential' },
-  { id: '5', name: 'Personal Accident Elite', type: 'Accident', limit: '$100,000', utilized: 100, description: 'Lump Sum Coverage', issuer: 'Income Insurance' },
+  { id: '1', name: 'Income Shield Plus', type: 'Hospital', limit: '$2,500,000', utilized: 12, description: 'Lifetime Limit', issuer: 'Income Insurance', premium: 1200 },
+  { id: '2', name: 'Elite Health Care', type: 'Outpatient', limit: '$15,000', utilized: 65, description: 'Annual Limit', issuer: 'AIA', premium: 450 },
+  { id: '3', name: 'Emergency Guard', type: 'A&E', limit: 'Unlimited', utilized: 5, description: 'Co-payment applies', issuer: 'Great Eastern', premium: 280 },
+  { id: '4', name: 'Globetrotter Pro', type: 'Travel', limit: '$500,000', utilized: 0, description: 'Per Voyage', issuer: 'Prudential', premium: 150 },
+  { id: '5', name: 'Personal Accident Elite', type: 'Accident', limit: '$100,000', utilized: 100, description: 'Lump Sum Coverage', issuer: 'Income Insurance', premium: 200 },
 ];
 
 const INITIAL_CLAIMS: ClaimHistoryItem[] = [
@@ -960,7 +961,8 @@ export default function App() {
         limit: '$50,000',
         utilized: 0,
         description: 'New Aggregate Data',
-        issuer: 'New Insurer'
+        issuer: 'New Insurer',
+        premium: 500
       };
       setPolicies(prev => [newPolicy, ...prev]);
       setIsScanning(false);
@@ -1099,6 +1101,8 @@ export default function App() {
     console.log("Summary copied");
   };
 
+  const totalPremium = policies.reduce((acc, p) => acc + (p.premium || 0), 0);
+
   return (
     <div className="flex h-screen overflow-hidden font-sans selection:bg-primary/20 selection:text-primary">
       <Sidebar activeTab={activeTab} onTabChange={handleTabChange} />
@@ -1123,10 +1127,28 @@ export default function App() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
               >
-                <h2 className="font-display text-3xl font-bold text-on-surface">Policy Aggregation</h2>
-                <p className="text-on-surface-variant mt-1">Combined overview of your {policies.length} active policies</p>
+                <div className="flex items-center gap-2 mb-1">
+                   <span className="w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+                   <p className="text-xs font-black text-primary uppercase tracking-[0.2em]">Welcome back</p>
+                </div>
+                <h2 className="font-display text-4xl font-bold text-on-surface">John Doe</h2>
+                <p className="text-on-surface-variant mt-1 italic">Managing {policies.length} active policies across 4 providers</p>
               </motion.div>
               <div className="flex flex-wrap gap-3">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.2 }}
+                  className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-5 pr-8"
+                >
+                  <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
+                    <CreditCard className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Total Premiums</p>
+                    <p className="text-xl font-black text-on-surface">${totalPremium.toLocaleString()} <span className="text-xs font-normal text-on-surface-variant">/ year</span></p>
+                  </div>
+                </motion.div>
                 <button 
                   onClick={handleCopySummary}
                   className="bg-white text-primary border-2 border-primary/20 px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all active:scale-95 flex items-center gap-2 focus:ring-2 focus:ring-primary focus:outline-none"
