@@ -414,6 +414,269 @@ const RecommendationsModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: (
   </AnimatePresence>
 );
 
+const PoliciesListView = ({ policies, onAddPolicy }: { policies: Policy[], onAddPolicy: () => void }) => {
+  const getIconForType = (type: string) => {
+    switch (type) {
+      case 'Hospital': return Hospital;
+      case 'Outpatient': return Stethoscope;
+      case 'A&E': return Activity;
+      case 'Travel': return Plane;
+      case 'Accident': return HeartPulse;
+      default: return Info;
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-8"
+    >
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="font-display text-3xl font-bold text-on-surface">Integrated Policies</h2>
+          <p className="text-on-surface-variant mt-1">Manage and view details of all your coverage instruments.</p>
+        </div>
+        <button 
+          onClick={onAddPolicy}
+          className="bg-primary text-white px-6 py-3 rounded-xl font-bold text-sm hover:opacity-90 shadow-lg shadow-primary/20 transition-all flex items-center gap-2"
+        >
+          <Plus className="w-5 h-5" />
+          <span>Add Policy</span>
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {policies.map((policy) => {
+          const Icon = getIconForType(policy.type);
+          return (
+            <motion.div 
+              key={policy.id}
+              whileHover={{ scale: 1.01 }}
+              className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col sm:flex-row gap-6 group hover:border-primary transition-all"
+            >
+              <div className={cn(
+                "w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 transition-colors bg-opacity-10",
+                policy.utilized > 80 ? "bg-red-500 text-red-600" : policy.utilized > 40 ? "bg-orange-500 text-orange-600" : "bg-primary text-primary"
+              )}>
+                <Icon className="w-8 h-8" />
+              </div>
+
+              <div className="flex-1">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h3 className="font-display text-xl font-bold text-on-surface group-hover:text-primary transition-colors">{policy.name}</h3>
+                    <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">{policy.issuer}</p>
+                  </div>
+                  <span className="px-3 py-1 bg-gray-50 text-[10px] font-black rounded-full border border-gray-100 uppercase tracking-widest">{policy.type}</span>
+                </div>
+                
+                <p className="text-sm text-on-surface-variant mb-6">{policy.description}</p>
+                
+                <div className="space-y-4">
+                  <div className="flex justify-between items-end">
+                    <div>
+                      <p className="text-[10px] font-black text-on-surface-variant/60 uppercase tracking-widest mb-1">Coverage Limit</p>
+                      <p className="font-display text-lg font-black text-on-surface">{policy.limit}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-black text-on-surface-variant/60 uppercase tracking-widest mb-1">Utilization</p>
+                      <p className={cn(
+                        "font-display text-lg font-black transition-colors",
+                        policy.utilized > 80 ? "text-red-500" : policy.utilized > 40 ? "text-orange-500" : "text-primary"
+                      )}>{policy.utilized}%</p>
+                    </div>
+                  </div>
+                  
+                  <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden shadow-inner flex items-center">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${policy.utilized}%` }}
+                      transition={{ duration: 1, ease: "easeOut" }}
+                      className={cn(
+                        "h-full rounded-full",
+                        policy.utilized > 80 ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" : policy.utilized > 40 ? "bg-orange-500" : "bg-primary"
+                      )}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-4 mt-8 pt-6 border-t border-gray-50 group-hover:border-primary/10 transition-colors">
+                  <button className="flex-1 py-3 bg-gray-50 text-on-surface font-bold text-xs rounded-xl hover:bg-gray-100 transition-colors uppercase tracking-widest flex items-center justify-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    View Doc
+                  </button>
+                  <button className="flex-1 py-3 bg-gray-50 text-on-surface font-bold text-xs rounded-xl hover:bg-gray-100 transition-colors uppercase tracking-widest flex items-center justify-center gap-2 text-primary">
+                    <History className="w-4 h-4" />
+                    Claims
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+};
+
+const HelpCenterView = () => {
+  const [activeSubTab, setActiveSubTab] = useState<'faq' | 'contact'>('faq');
+  
+  const faqs = [
+    { question: "How do I add a new policy?", answer: "Click on 'Add New Policy' in your dashboard or 'Scan' in the mobile app to upload your document. Our AI will automatically parse the details for you." },
+    { question: "What does 'Coverage Gap' mean?", answer: "A coverage gap occurs when your current insurance policies don't fully protect you against specific risks. Our AI identifies these based on your profile and industry standards." },
+    { question: "How long does a claim take to process?", answer: "Most claims are processed within 3-5 business days. You can track the real-time status under the 'Claims History' tab." },
+    { question: "Can I cancel a policy through the app?", answer: "Currently, you need to contact your agent or insurer to cancel. We can, however, prepare the necessary documents for you." },
+  ];
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-8"
+    >
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <h2 className="font-display text-3xl font-bold text-on-surface">Help Center</h2>
+          <p className="text-on-surface-variant mt-1">Found the answers you're looking for or talk to your specialist.</p>
+        </div>
+        
+        <div className="flex bg-white p-1 rounded-xl border border-gray-100 shadow-sm">
+          <button 
+            onClick={() => setActiveSubTab('faq')}
+            className={cn(
+              "px-6 py-2 rounded-lg text-sm font-bold transition-all",
+              activeSubTab === 'faq' ? "bg-primary text-white shadow-md shadow-primary/20" : "text-on-surface-variant hover:bg-gray-50"
+            )}
+          >
+            FAQs
+          </button>
+          <button 
+            onClick={() => setActiveSubTab('contact')}
+            className={cn(
+              "px-6 py-2 rounded-lg text-sm font-bold transition-all",
+              activeSubTab === 'contact' ? "bg-primary text-white shadow-md shadow-primary/20" : "text-on-surface-variant hover:bg-gray-50"
+            )}
+          >
+            Your Agent
+          </button>
+        </div>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {activeSubTab === 'faq' ? (
+          <motion.div 
+            key="faq"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            className="grid grid-cols-1 md:grid-cols-2 gap-6"
+          >
+            {faqs.map((faq, i) => (
+              <div key={i} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:border-primary transition-all group">
+                <div className="w-10 h-10 bg-primary/5 rounded-xl flex items-center justify-center text-primary mb-4 group-hover:bg-primary group-hover:text-white transition-colors">
+                  <HelpCircle className="w-5 h-5" />
+                </div>
+                <h4 className="font-display text-lg font-bold text-on-surface mb-2">{faq.question}</h4>
+                <p className="text-sm text-on-surface-variant leading-relaxed">{faq.answer}</p>
+              </div>
+            ))}
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="agent"
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden"
+          >
+            <div className="flex flex-col lg:flex-row">
+              <div className="lg:w-1/3 bg-primary-container p-10 flex flex-col items-center text-center">
+                <div className="relative mb-6">
+                  <img 
+                    src="/src/assets/images/insurance_agent_avatar_1778829243604.png" 
+                    alt="Sarah Chen" 
+                    className="w-32 h-32 rounded-[2rem] object-cover shadow-2xl border-4 border-white/20"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute -bottom-2 -right-2 bg-green-500 w-6 h-6 rounded-full border-4 border-primary-container"></div>
+                </div>
+                <h3 className="font-display text-2xl font-bold text-white uppercase tracking-wider">Sarah Chen</h3>
+                <p className="text-white/70 text-xs font-bold uppercase tracking-[0.2em] mt-1">Personal Specialist</p>
+                <div className="mt-8 space-y-4 w-full">
+                  <div className="bg-white/10 p-3 rounded-xl flex items-center gap-3">
+                    <Star className="w-4 h-4 text-orange-300 fill-orange-300" />
+                    <span className="text-white text-sm font-bold">4.9 / 5.0 Rating</span>
+                  </div>
+                  <div className="bg-white/10 p-3 rounded-xl flex items-center gap-3">
+                    <History className="w-4 h-4 text-white/50" />
+                    <span className="text-white text-sm font-bold">8 Years Experience</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="lg:w-2/3 p-10 lg:p-14">
+                <h4 className="font-display text-2xl font-bold text-on-surface mb-6 underline decoration-primary decoration-4 underline-offset-8">Contact Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Email Address</p>
+                    <p className="font-bold text-on-surface flex items-center gap-2">
+                       sarah.chen@insurehelp.com
+                       <ExternalLink className="w-3.5 h-3.5 text-primary" />
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Direct Phone</p>
+                    <p className="font-bold text-on-surface flex items-center gap-2">
+                       +65 9123 4567
+                       <ExternalLink className="w-3.5 h-3.5 text-primary" />
+                    </p>
+                  </div>
+                </div>
+                
+                <h4 className="font-display text-2xl font-bold text-on-surface mb-6 underline decoration-primary decoration-4 underline-offset-8">Expertise Areas</h4>
+                <div className="flex flex-wrap gap-2 mb-10">
+                  {['Wealth Management', 'Critical Illness', 'Hospitalization', 'Estate Planning'].map(tag => (
+                    <span key={tag} className="px-4 py-2 bg-gray-50 text-on-surface text-xs font-bold rounded-lg border border-gray-100 uppercase tracking-widest">{tag}</span>
+                  ))}
+                </div>
+                
+                <div className="flex gap-4">
+                  <button className="flex-1 bg-primary text-white py-4 rounded-xl font-bold shadow-lg shadow-primary/20 hover:opacity-90 active:scale-95 transition-all">
+                    Schedule a Consultation
+                  </button>
+                  <button className="px-6 border-2 border-gray-100 rounded-xl hover:bg-gray-50 transition-colors">
+                    <Bell className="w-5 h-5 text-on-surface-variant" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="bg-gray-900 rounded-3xl p-8 text-white relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="max-w-md">
+            <h3 className="font-display text-2xl font-bold mb-2">Still can't find what you need?</h3>
+            <p className="text-white/60 text-sm">Our community forum and official documentation are available 24/7 for you to explore.</p>
+          </div>
+          <div className="flex gap-4">
+            <button className="px-8 py-3 bg-white text-gray-900 rounded-xl font-bold hover:scale-105 active:scale-95 transition-all">
+              Join Forum
+            </button>
+            <button className="px-8 py-3 bg-gray-800 text-white rounded-xl font-bold border border-white/10 hover:bg-gray-700 transition-all">
+              Documentation
+            </button>
+          </div>
+        </div>
+        <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-primary/20 rounded-full blur-[100px]"></div>
+      </div>
+    </motion.div>
+  );
+};
+
 const Header = ({ activeTab }: { activeTab: string }) => {
   const getTitle = () => {
     switch (activeTab) {
@@ -513,6 +776,11 @@ export default function App() {
   const [simulationResult, setSimulationResult] = useState<ClaimSimulationResult | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isRecommendationsOpen, setIsRecommendationsOpen] = useState(false);
+  const [medisaveBalance, setMedisaveBalance] = useState({
+    balance: "$48,500",
+    monthlyContribution: "$450",
+    lastUpdated: "12 May 2024"
+  });
 
   const handleScan = () => {
     setIsScanning(true);
@@ -713,13 +981,28 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0 }}
+              >
+                <SummaryCard 
+                  title="MediSave" 
+                  value={medisaveBalance.balance} 
+                  label="CPF Medical Savings" 
+                  icon={ShieldCheck} 
+                  percentage={100} 
+                  statusColor="bg-red-500" 
+                  statusLabel={`+${medisaveBalance.monthlyContribution} / mo`} 
+                />
+              </motion.div>
               {policies.map((policy, idx) => (
                 <motion.div
                   key={policy.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.1 }}
+                  transition={{ delay: (idx + 1) * 0.1 }}
                 >
                   <SummaryCard 
                     title={policy.type} 
@@ -1031,11 +1314,19 @@ export default function App() {
               <ClaimsHistoryView claims={claims} />
             )}
 
+            {activeTab === 'policies' && (
+              <PoliciesListView policies={policies} onAddPolicy={handleScan} />
+            )}
+
+            {activeTab === 'help' && (
+              <HelpCenterView />
+            )}
+
             {activeTab === 'pricing' && (
               <PricingView />
             )}
 
-            {activeTab !== 'dashboard' && activeTab !== 'claims' && activeTab !== 'pricing' && (
+            {activeTab !== 'dashboard' && activeTab !== 'claims' && activeTab !== 'pricing' && activeTab !== 'policies' && (
               <motion.div
                 key="other"
                 initial={{ opacity: 0, y: 10 }}
