@@ -1,0 +1,23 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&family=Open+Sans:wght@400;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Open Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Nunito Sans", sans-serif;
+
+  --color-primary: #954a00;
+  --color-primary-container: #ff8200;
+  --color-surface-warm: #FDE9D9;
+  --color-surface-cool: #F4F7F9;
+  --color-on-surface: #181c1e;
+  --color-on-surface-variant: #574235;
+
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+}
+
+@layer base {
+  body {
+    @apply bg-surface-cool text-on-surface font-sans;
+  }
+}

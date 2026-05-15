@@ -1,0 +1,937 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect } from 'react';
+import { 
+  ShieldCheck, 
+  LayoutDashboard, 
+  FileText, 
+  History, 
+  Settings, 
+  HelpCircle, 
+  Search, 
+  Bell, 
+  Menu,
+  Copy,
+  Download,
+  Stethoscope,
+  HeartPulse,
+  Plane,
+  MoreHorizontal,
+  CloudUpload,
+  QrCode,
+  AlertTriangle,
+  XCircle,
+  Info,
+  Activity,
+  Zap,
+  Hospital,
+  ChevronRight,
+  ExternalLink,
+  Star,
+  MapPin,
+  CheckCircle2,
+  Loader2,
+  Plus
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { GoogleGenAI, Type } from "@google/genai";
+import { cn } from './lib/utils';
+
+// --- Types ---
+
+interface Policy {
+  id: string;
+  name: string;
+  type: 'Hospital' | 'Outpatient' | 'A&E' | 'Travel' | 'Accident' | 'Others';
+  limit: string;
+  utilized: number;
+  description: string;
+  issuer: string;
+}
+
+interface ClaimSimulationResult {
+  claimable: {
+    policyName: string;
+    maxAmount: string;
+    reason: string;
+  }[];
+  exclusions: string[];
+  recommendations: {
+    name: string;
+    competency: string;
+    rating: string;
+    distance: string;
+  }[];
+  estOutOfPocket: string;
+}
+
+interface ClaimHistoryItem {
+  id: string;
+  policyName: string;
+  condition: string;
+  date: string;
+  amount: string;
+  status: 'Approved' | 'Pending' | 'Rejected';
+}
+
+// --- Constants & API ---
+
+const INITIAL_POLICIES: Policy[] = [
+  { id: '1', name: 'Income Shield Plus', type: 'Hospital', limit: '$2,500,000', utilized: 12, description: 'Lifetime Limit', issuer: 'Income Insurance' },
+  { id: '2', name: 'Elite Health Care', type: 'Outpatient', limit: '$15,000', utilized: 65, description: 'Annual Limit', issuer: 'AIA' },
+  { id: '3', name: 'Emergency Guard', type: 'A&E', limit: 'Unlimited', utilized: 5, description: 'Co-payment applies', issuer: 'Great Eastern' },
+  { id: '4', name: 'Globetrotter Pro', type: 'Travel', limit: '$500,000', utilized: 0, description: 'Per Voyage', issuer: 'Prudential' },
+  { id: '5', name: 'Personal Accident Elite', type: 'Accident', limit: '$100,000', utilized: 100, description: 'Lump Sum Coverage', issuer: 'Income Insurance' },
+];
+
+const INITIAL_CLAIMS: ClaimHistoryItem[] = [
+  { id: 'c1', policyName: 'Income Shield Plus', condition: 'Cataract Surgery', date: '2023-11-12', amount: '$4,200', status: 'Approved' },
+  { id: 'c2', policyName: 'Elite Health Care', condition: 'Physiotherapy (Sports Injury)', date: '2024-01-05', amount: '$150', status: 'Approved' },
+  { id: 'c3', policyName: 'Emergency Guard', condition: 'Food Poisoning (A&E)', date: '2024-02-28', amount: '$450', status: 'Approved' },
+  { id: 'c4', policyName: 'Elite Health Care', condition: 'Diagnostic X-Ray', date: '2024-03-15', amount: '$220', status: 'Pending' },
+];
+
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+
+// --- Components ---
+
+const Sidebar = ({ activeTab, onTabChange }: { activeTab: string, onTabChange: (tab: string) => void }) => {
+  const menuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'policies', label: 'My Policies', icon: FileText },
+    { id: 'claims', label: 'Claims History', icon: History },
+    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'help', label: 'Help Center', icon: HelpCircle },
+  ];
+
+  return (
+    <aside className="hidden md:flex flex-col h-full border-r border-gray-200 bg-white w-72 fixed left-0 top-0 shadow-xl z-50">
+      <div className="p-6 flex items-center space-x-3">
+        <ShieldCheck className="text-primary w-8 h-8 fill-primary/10" />
+        <span className="font-display font-bold text-xl text-primary">Insure Help</span>
+      </div>
+      
+      <div className="mt-8 px-4 flex-1">
+        <div className="mb-8 p-4 bg-gray-50 rounded-xl flex items-center space-x-3 border border-gray-100">
+          <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-white font-bold">
+            JD
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-on-surface-variant">Welcome back</p>
+            <p className="font-display font-bold text-lg text-primary">John Doe</p>
+          </div>
+        </div>
+
+        <nav className="space-y-1" role="navigation" aria-label="Main Navigation">
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => onTabChange(item.id)}
+              className={cn(
+                "w-full flex items-center px-4 py-3 rounded-xl transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset",
+                activeTab === item.id 
+                  ? "bg-primary-container text-white font-bold shadow-lg shadow-primary-container/20" 
+                  : "text-on-surface-variant hover:bg-gray-100"
+              )}
+              aria-current={activeTab === item.id ? 'page' : undefined}
+            >
+              <item.icon className={cn("mr-3 w-5 h-5", activeTab === item.id ? "text-white" : "text-on-surface-variant group-hover:text-primary")} />
+              <span className="text-sm">{item.label}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      <div className="p-6 border-t border-gray-100">
+        <div className="bg-surface-warm p-4 rounded-xl border-l-4 border-primary shadow-sm">
+          <p className="text-sm font-bold text-primary">Status: Premium User</p>
+          <p className="text-xs text-on-surface-variant mt-1">Your coverage is 85% optimal.</p>
+        </div>
+      </div>
+    </aside>
+  );
+};
+
+const ClaimsHistoryView = ({ claims }: { claims: ClaimHistoryItem[] }) => (
+  <motion.div 
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="space-y-8"
+  >
+    <div className="flex justify-between items-center">
+      <div>
+        <h2 className="font-display text-3xl font-bold text-on-surface">Claims History</h2>
+        <p className="text-on-surface-variant mt-1">A detailed list of all your processed and pending claims.</p>
+      </div>
+      <button className="bg-white text-primary border-2 border-primary/20 px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all flex items-center gap-2">
+        <Download className="w-4 h-4" />
+        <span>Download Statement</span>
+      </button>
+    </div>
+
+    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-100">
+              <th className="px-6 py-4 text-xs font-extrabold text-on-surface-variant uppercase tracking-widest">Date</th>
+              <th className="px-6 py-4 text-xs font-extrabold text-on-surface-variant uppercase tracking-widest">Medical Condition</th>
+              <th className="px-6 py-4 text-xs font-extrabold text-on-surface-variant uppercase tracking-widest">Policy</th>
+              <th className="px-6 py-4 text-xs font-extrabold text-on-surface-variant uppercase tracking-widest text-right">Amount</th>
+              <th className="px-6 py-4 text-xs font-extrabold text-on-surface-variant uppercase tracking-widest text-center">Status</th>
+              <th className="px-6 py-4 text-xs font-extrabold text-on-surface-variant uppercase tracking-widest text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {claims.map((claim) => (
+              <tr key={claim.id} className="hover:bg-gray-50/50 transition-colors">
+                <td className="px-6 py-4">
+                  <span className="text-sm font-bold text-on-surface">
+                    {new Date(claim.date).toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </span>
+                </td>
+                <td className="px-6 py-4">
+                  <p className="text-sm font-bold text-on-surface">{claim.condition}</p>
+                </td>
+                <td className="px-6 py-4">
+                  <span className="px-3 py-1 bg-primary/5 text-primary text-[10px] font-bold rounded-full border border-primary/10 uppercase tracking-wider">
+                    {claim.policyName}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <span className="text-sm font-black text-on-surface">{claim.amount}</span>
+                </td>
+                <td className="px-6 py-4 text-center">
+                  <span className={cn(
+                    "px-3 py-1 text-[10px] font-black rounded-full uppercase tracking-wider",
+                    claim.status === 'Approved' ? "bg-green-50 text-green-600 border border-green-100" :
+                    claim.status === 'Pending' ? "bg-orange-50 text-orange-600 border border-orange-100" :
+                    "bg-red-50 text-red-600 border border-red-100"
+                  )}>
+                    {claim.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-center">
+                  <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-on-surface-variant">
+                    <MoreHorizontal className="w-5 h-5" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </motion.div>
+);
+
+const Header = ({ activeTab }: { activeTab: string }) => {
+  const getTitle = () => {
+    switch (activeTab) {
+      case 'dashboard': return 'Dashboard';
+      case 'policies': return 'My Policies';
+      case 'claims': return 'Claims History';
+      case 'settings': return 'Settings';
+      case 'help': return 'Help Center';
+      default: return 'Insure Help';
+    }
+  };
+
+  return (
+    <header className="w-full top-0 sticky z-40 bg-white shadow-sm border-b border-gray-100 h-16 flex justify-between items-center px-6 md:px-10">
+      <div className="flex items-center">
+        <Menu className="md:hidden text-primary mr-4 cursor-pointer" />
+        <h1 className="font-display text-xl font-bold text-primary md:hidden">Insure Help</h1>
+        <div className="hidden md:block">
+           <h1 className="font-display text-xl font-bold text-primary">{getTitle()}</h1>
+        </div>
+      </div>
+      
+      <div className="flex items-center space-x-6">
+        <div className="hidden md:flex items-center space-x-2 text-on-surface-variant cursor-pointer hover:bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100 transition-colors">
+          <Search className="w-4 h-4" />
+          <span className="text-sm font-medium">Search analytics...</span>
+        </div>
+        
+        <div className="relative cursor-pointer hover:bg-gray-50 p-2 rounded-full transition-colors border border-gray-100">
+          <Bell className="w-5 h-5 text-on-surface-variant" />
+          <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+        </div>
+        
+        <img 
+          alt="User" 
+          className="w-9 h-9 rounded-full border-2 border-primary-container cursor-pointer shadow-sm hover:scale-105 transition-transform" 
+          src="https://lh3.googleusercontent.com/aida-public/AB6AXuCweMV92ht3OxAeWewO4pWGSpy3qJzClJrjEdVrBY5gw1fXvyW4RFXpsKiKh3JV4WwpFoGc-m4bgH-FJGcI-ULsbT1091fmYTUjBMy7biSZoo8PKeUV40DGlFJ6g477eNXvWVcgULpni8uveJHwcjPKaA4QPZ_xwrlRQ-5kVr9ojOqpGtbp4N5m01MOOEW9lsRiT3Yb8EO6hfQjVcBx4IJASQfi-vpeDgEcFRuwrea310dzToNT3-MDVaHV3mu70AvcdpXDWyuFtJKT" 
+          referrerPolicy="no-referrer"
+        />
+      </div>
+    </header>
+  );
+};
+
+const SummaryCard = ({ 
+  title, 
+  value, 
+  label, 
+  icon: Icon, 
+  percentage, 
+  statusColor, 
+  statusLabel 
+}: { 
+  title: string, 
+  value: string, 
+  label: string, 
+  icon: any, 
+  percentage: number, 
+  statusColor: string, 
+  statusLabel: string 
+}) => (
+  <motion.div 
+    whileHover={{ y: -4 }}
+    className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all"
+  >
+    <div className="flex justify-between items-start mb-4">
+      <div className={cn("p-2 rounded-xl bg-opacity-10", statusColor.replace('bg-', 'text-').replace('-500', '-600'))}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <span className="text-xs font-bold text-on-surface-variant bg-gray-50 px-2 py-1 rounded-lg uppercase tracking-wider">{title}</span>
+    </div>
+    <h3 className="font-display text-2xl font-bold text-on-surface">{value}</h3>
+    <p className="text-xs font-medium text-on-surface-variant mb-4">{label}</p>
+    
+    <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+      <motion.div 
+        initial={{ width: 0 }}
+        animate={{ width: `${percentage}%` }}
+        transition={{ duration: 1, ease: "easeOut" }}
+        className={cn("h-full rounded-full", statusColor)}
+      />
+    </div>
+    <p className={cn("text-xs font-bold mt-2", statusColor.replace('bg-', 'text-').replace('-500', '-600'))}>
+      {statusLabel}
+    </p>
+  </motion.div>
+);
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [medicalQuery, setMedicalQuery] = useState('Knee Replacement');
+  const [policies, setPolicies] = useState<Policy[]>(INITIAL_POLICIES);
+  const [claims, setClaims] = useState<ClaimHistoryItem[]>(INITIAL_CLAIMS);
+  const [isScanning, setIsScanning] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simulationResult, setSimulationResult] = useState<ClaimSimulationResult | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const handleScan = () => {
+    setIsScanning(true);
+    setValidationError(null);
+    // Simulate OCR/AI parsing
+    setTimeout(() => {
+      const newPolicy: Policy = {
+        id: Math.random().toString(36).substr(2, 9),
+        name: 'New Life Secure',
+        type: 'Hospital',
+        limit: '$50,000',
+        utilized: 0,
+        description: 'New Aggregate Data',
+        issuer: 'New Insurer'
+      };
+      setPolicies(prev => [newPolicy, ...prev]);
+      setIsScanning(false);
+    }, 2000);
+  };
+
+  const validateInput = (input: string) => {
+    if (!input.trim()) return "Please enter a medical condition.";
+    if (input.length < 3) return "Condition name is too short.";
+    if (/[<>{}]/.test(input)) return "Invalid characters used.";
+    return null;
+  };
+
+  const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMedicalQuery(e.target.value);
+    if (validationError) setValidationError(null);
+  };
+
+  const runSimulation = async () => {
+    const error = validateInput(medicalQuery);
+    if (error) {
+      setValidationError(error);
+      return;
+    }
+
+    setIsSimulating(true);
+    setValidationError(null);
+    
+    try {
+      const response = await genAI.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Analyze this medical condition: "${medicalQuery}" in the context of a typical insurance policy's coverage. 
+        Return a JSON object matching this structure:
+        {
+          "claimable": [{"policyName": string, "maxAmount": string, "reason": string}],
+          "exclusions": [string],
+          "recommendations": [{"name": string, "competency": string, "rating": string, "distance": string}],
+          "estOutOfPocket": string
+        }
+        Use realistic values for a Singapore-based health system context.`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              claimable: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    policyName: { type: Type.STRING },
+                    maxAmount: { type: Type.STRING },
+                    reason: { type: Type.STRING }
+                  },
+                  required: ["policyName", "maxAmount", "reason"]
+                }
+              },
+              exclusions: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING }
+              },
+              recommendations: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    name: { type: Type.STRING },
+                    competency: { type: Type.STRING },
+                    rating: { type: Type.STRING },
+                    distance: { type: Type.STRING }
+                  },
+                  required: ["name", "competency", "rating", "distance"]
+                }
+              },
+              estOutOfPocket: { type: Type.STRING }
+            },
+            required: ["claimable", "exclusions", "recommendations", "estOutOfPocket"]
+          }
+        }
+      });
+
+      if (response.text) {
+        setSimulationResult(JSON.parse(response.text));
+      }
+    } catch (error) {
+      console.error("Simulation failed:", error);
+      // Fallback data
+      setSimulationResult({
+        claimable: [
+          { policyName: "Income Shield Plus", maxAmount: "$12,500", reason: "Main Medical Plan" },
+          { policyName: "Personal Accident Elite", maxAmount: "$3,000", reason: "Injury-related Clause" }
+        ],
+        exclusions: [
+          "Private Hospitals Excluded (Plan only covers Public)",
+          "Physiotherapy limited to 10 sessions",
+          "20% reduction due to pre-existing clause"
+        ],
+        recommendations: [
+          { name: "Mount Elizabeth Novena", competency: "Orthopedic Surgery", rating: "4.8", distance: "2.4 km" },
+          { name: "Gleneagles Hospital", competency: "Sports Medicine Unit", rating: "4.5", distance: "4.1 km" }
+        ],
+        estOutOfPocket: "$1,200"
+      });
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      runSimulation();
+    }
+  };
+
+  useEffect(() => {
+    runSimulation();
+  }, []);
+
+  const getIconForType = (type: string) => {
+    switch (type) {
+      case 'Hospital': return Hospital;
+      case 'Outpatient': return Stethoscope;
+      case 'A&E': return Activity;
+      case 'Travel': return Plane;
+      case 'Accident': return HeartPulse;
+      default: return Info;
+    }
+  };
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+  };
+
+  const handleCopySummary = () => {
+    // Logic for copying summary
+    console.log("Summary copied");
+  };
+
+  return (
+    <div className="flex h-screen overflow-hidden font-sans selection:bg-primary/20 selection:text-primary">
+      <Sidebar activeTab={activeTab} onTabChange={handleTabChange} />
+      
+      <main className="flex-1 ml-0 md:ml-72 overflow-y-auto bg-surface-cool min-h-screen">
+        <Header activeTab={activeTab} />
+        
+        <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-10">
+          <AnimatePresence mode="wait">
+            {activeTab === 'dashboard' && (
+              <motion.div
+                key="dashboard"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-10"
+              >
+                {/* Section: Welcome & Aggregation Summary */}
+                <section>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-6">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+              >
+                <h2 className="font-display text-3xl font-bold text-on-surface">Policy Aggregation</h2>
+                <p className="text-on-surface-variant mt-1">Combined overview of your {policies.length} active policies</p>
+              </motion.div>
+              <div className="flex flex-wrap gap-3">
+                <button 
+                  onClick={handleCopySummary}
+                  className="bg-white text-primary border-2 border-primary/20 px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all active:scale-95 flex items-center gap-2 focus:ring-2 focus:ring-primary focus:outline-none"
+                  aria-label="Copy aggregation summary to clipboard"
+                >
+                  <Copy className="w-4 h-4" />
+                  <span>Copy Summary</span>
+                </button>
+                <button 
+                  onClick={handleScan}
+                  disabled={isScanning}
+                  className="bg-primary text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:opacity-90 shadow-lg shadow-primary/20 transition-all active:scale-95 flex items-center gap-2 border-2 border-primary disabled:opacity-50 focus:ring-2 focus:ring-white focus:outline-none"
+                  aria-label={isScanning ? "Scanning policy" : "Add new policy documents"}
+                >
+                  {isScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  <span>{isScanning ? 'Adding...' : 'Add New Policy'}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+              {policies.map((policy, idx) => (
+                <motion.div
+                  key={policy.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.1 }}
+                >
+                  <SummaryCard 
+                    title={policy.type} 
+                    value={policy.limit} 
+                    label={policy.description} 
+                    icon={getIconForType(policy.type)} 
+                    percentage={policy.utilized} 
+                    statusColor={policy.utilized > 50 ? "bg-orange-500" : "bg-primary"} 
+                    statusLabel={policy.utilized === 0 ? "No active usage" : policy.utilized === 100 ? "Fully utilized" : `${policy.utilized}% utilized`} 
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </section>
+
+          {/* Grid Layout for Scan, Exclusions, and Gaps */}
+          <div className="grid grid-cols-12 gap-8">
+            {/* Scan Policy Section */}
+            <div className="col-span-12 lg:col-span-4 h-full">
+              <div className="bg-white p-8 rounded-2xl shadow-sm flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-200 hover:border-primary transition-all h-full group">
+                <div className="w-20 h-20 bg-primary/5 text-primary rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <CloudUpload className="w-10 h-10" />
+                </div>
+                <h3 className="font-display text-xl font-bold text-on-surface">Scan New Policy</h3>
+                <p className="text-sm text-on-surface-variant mt-2 mb-8 px-4">
+                  Drag and drop your PDF or scan the QR code from your policy document to aggregate data.
+                </p>
+                <button 
+                  onClick={handleScan}
+                  disabled={isScanning}
+                  className="w-full bg-primary text-white font-bold py-4 rounded-xl flex items-center justify-center space-x-3 hover:opacity-95 shadow-xl shadow-primary/20 transition-all active:scale-95 disabled:opacity-50"
+                  aria-label="Upload policy document"
+                >
+                  {isScanning ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                  <span>{isScanning ? 'Processing...' : 'Select Files'}</span>
+                </button>
+                <div className="mt-8 flex items-center space-x-4 bg-gray-50 px-4 py-3 rounded-2xl border border-gray-100">
+                  <QrCode className="w-5 h-5 text-on-surface-variant" />
+                  <span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Use Mobile App to Scan</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Medical Exclusions & Coverage Gaps */}
+            <div className="col-span-12 lg:col-span-8 flex flex-col gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
+                {/* Medical Exclusions */}
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+                  <div className="flex items-center space-x-3 mb-8">
+                    <div className="p-2 bg-red-50 rounded-lg">
+                      <AlertTriangle className="w-5 h-5 text-red-500" />
+                    </div>
+                    <h3 className="font-display text-xl font-bold text-on-surface">Medical Exclusions</h3>
+                  </div>
+                  <div className="space-y-4 flex-1">
+                    {[
+                      { 
+                        title: "Pre-existing Diabetes Type 2", 
+                        subtitle: "Excluded from Policy #INS-8821 until Jan 2026",
+                        icon: XCircle,
+                        color: "text-red-500",
+                        bg: "bg-red-50"
+                      },
+                      { 
+                        title: "Cosmetic Surgery & Elective", 
+                        subtitle: "Universal exclusion across all integrated policies",
+                        icon: XCircle,
+                        color: "text-red-500",
+                        bg: "bg-red-50"
+                      },
+                      { 
+                        title: "Alternative Medicine Limit", 
+                        subtitle: "Capped at $500/year for TCM & Chiropractic",
+                        icon: Info,
+                        color: "text-orange-500",
+                        bg: "bg-orange-50"
+                      }
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-2xl border border-gray-100/50 hover:bg-white hover:border-gray-200 transition-all duration-200 cursor-default">
+                        <item.icon className={cn("w-5 h-5 mt-0.5", item.color)} />
+                        <div>
+                          <p className="font-bold text-sm text-on-surface">{item.title}</p>
+                          <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">{item.subtitle}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Coverage Gaps */}
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+                  <div className="flex items-center space-x-3 mb-8">
+                    <div className="p-2 bg-primary/5 rounded-lg">
+                      <Activity className="w-5 h-5 text-primary" />
+                    </div>
+                    <h3 className="font-display text-xl font-bold text-on-surface">Coverage Gaps</h3>
+                  </div>
+                  <div className="space-y-4 flex-1">
+                    <div className="p-4 bg-surface-warm rounded-2xl border border-primary/10 relative overflow-hidden group hover:border-primary transition-colors">
+                      <div className="relative z-10">
+                        <p className="font-bold text-sm text-primary">Low Critical Illness Coverage</p>
+                        <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">Current: $100k. Recommended: $450k (based on income).</p>
+                        <button className="flex items-center gap-1 mt-3 font-bold text-xs text-primary group-hover:underline">
+                          See Recommended Plans <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-gray-200 transition-colors">
+                      <p className="font-bold text-sm text-on-surface">Missing: Early Cancer Shield</p>
+                      <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">None of your current policies cover stage 0 cancer detection.</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-gray-200 transition-colors">
+                      <p className="font-bold text-sm text-on-surface">Deductible Risk</p>
+                      <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">Total deductible across policies: $3,500. Consider a Rider.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section: Smart Claim Assistant */}
+          <section className="col-span-12">
+            <div className="bg-primary p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary-container/20 rounded-full -ml-20 -mb-20 blur-2xl"></div>
+              
+              <div className="relative z-10">
+                <div className="flex flex-col lg:flex-row gap-12">
+                  <div className="lg:w-1/3">
+                    <h2 className="font-display text-4xl font-extrabold text-white leading-tight">Smart Claim Assistant</h2>
+                    <p className="text-white/80 mt-3 font-medium text-lg">Check coverage and find pre-approved panel hospitals instantly.</p>
+                    
+                    <div className="mt-10 bg-white/10 backdrop-blur-xl p-8 rounded-3xl border border-white/20 shadow-2xl">
+                      <label htmlFor="medical-query-input" className="block text-sm font-bold text-white mb-4 uppercase tracking-widest opacity-80">Medical Condition</label>
+                      <div className="relative">
+                        <input 
+                          id="medical-query-input"
+                          type="text" 
+                          value={medicalQuery}
+                          onChange={handleQueryChange}
+                          onKeyDown={handleKeyDown}
+                          className={cn(
+                            "w-full bg-white/20 border-2 text-white placeholder:text-white/60 font-bold py-4 px-6 rounded-2xl focus:ring-4 focus:ring-white/20 outline-none transition-all text-lg shadow-inner",
+                            validationError ? "border-red-400" : "border-white/30 focus:border-white/50"
+                          )}
+                          placeholder="e.g. Cataract Surgery..."
+                          aria-invalid={!!validationError}
+                          aria-errormessage={validationError ? "medical-query-error" : undefined}
+                        />
+                        <Search className="absolute right-5 top-5 w-6 h-6 text-white/50" />
+                      </div>
+                      
+                      <AnimatePresence>
+                        {validationError && (
+                          <motion.p 
+                            id="medical-query-error"
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="text-red-300 text-xs font-bold mt-2 ml-1"
+                            role="alert"
+                          >
+                            {validationError}
+                          </motion.p>
+                        )}
+                      </AnimatePresence>
+
+                      <button 
+                        onClick={runSimulation}
+                        disabled={isSimulating}
+                        className="w-full mt-6 bg-white text-primary font-bold py-5 rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all shadow-2xl shadow-black/20 flex items-center justify-center gap-3 group text-lg disabled:opacity-70 disabled:scale-100 font-display focus:ring-4 focus:ring-white/30 focus:outline-none"
+                        aria-label="Analyze coverage for this condition"
+                      >
+                        {isSimulating ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <Zap className="w-5 h-5 group-hover:animate-pulse" />
+                        )}
+                        <span>{isSimulating ? 'Analyzing...' : 'Run Coverage Simulation'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="lg:w-2/3 flex flex-col gap-8">
+                    <AnimatePresence mode="wait">
+                      {isSimulating ? (
+                        <motion.div 
+                          key="loading"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="flex-1 flex flex-col items-center justify-center bg-white/5 backdrop-blur-md rounded-[2.5rem] border border-white/10 p-12 min-h-[400px]"
+                        >
+                          <Loader2 className="w-12 h-12 text-white animate-spin mb-6" />
+                          <p className="text-white font-display text-2xl font-bold">Analyzing Policies...</p>
+                          <p className="text-white/60 mt-2">Connecting with insurance panels & checking exclusions</p>
+                        </motion.div>
+                      ) : simulationResult && (
+                        <motion.div 
+                          key="result"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="grid grid-cols-1 md:grid-cols-2 gap-8"
+                        >
+                          {/* Claimable Results */}
+                          <div className="bg-white p-8 rounded-3xl shadow-xl border border-white/10 flex flex-col">
+                            <div className="flex items-center justify-between border-b border-gray-100 pb-5 mb-6">
+                              <h3 className="text-xs font-extrabold text-primary uppercase tracking-[0.2em]">Claimable Policies</h3>
+                              <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-full border border-primary/20">{simulationResult.claimable.length} MATCHES</span>
+                            </div>
+                            <div className="space-y-4">
+                              {simulationResult.claimable.map((plan, i) => (
+                                <div key={i} className="p-4 bg-gray-50 rounded-2xl border-l-4 border-primary hover:shadow-md transition-all duration-300">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <p className="font-bold text-sm text-on-surface">{plan.policyName}</p>
+                                      <p className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest mt-1">{plan.reason}</p>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="font-display text-xl font-black text-primary">{plan.maxAmount}</p>
+                                      <p className="text-[9px] font-bold text-on-surface-variant/60 uppercase tracking-tighter">Max Coverage</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                              <div className="pt-4 border-t border-gray-100 flex justify-between items-center px-2">
+                                <div className="flex items-center gap-2">
+                                  <Info className="w-4 h-4 text-red-500" />
+                                  <span className="text-xs font-bold text-on-surface-variant">Est. Out-of-pocket</span>
+                                </div>
+                                <span className="font-display text-xl font-black text-red-500">{simulationResult.estOutOfPocket}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Exclusions area */}
+                          <div className="bg-white p-8 rounded-3xl shadow-xl border border-white/10 flex flex-col">
+                            <div className="flex items-center justify-between border-b border-gray-100 pb-5 mb-6">
+                              <h3 className="text-xs font-extrabold text-red-600 uppercase tracking-[0.2em]">Exclusions & Gaps</h3>
+                            </div>
+                            <div className="space-y-3">
+                              {simulationResult.exclusions.map((exclusion, i) => (
+                                <div key={i} className="flex items-start gap-4 p-4 rounded-2xl border border-transparent hover:border-gray-100 transition-all cursor-default bg-red-50/50">
+                                  <XCircle className="w-5 h-5 mt-0.5 text-red-500" />
+                                  <div>
+                                    <p className="font-bold text-sm text-on-surface">Policy Restriction</p>
+                                    <p className="text-[11px] text-on-surface-variant mt-1 font-medium leading-relaxed">{exclusion}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Facilities section */}
+                          <div className="bg-white/95 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-white/20 md:col-span-2">
+                            <div className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-100 pb-5 mb-8 gap-4">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-primary/10 rounded-xl">
+                                  <Hospital className="w-5 h-5 text-primary" />
+                                </div>
+                                <h3 className="text-xs font-extrabold text-primary uppercase tracking-[0.2em]">Recommended Panel Facilities</h3>
+                              </div>
+                              <button className="text-primary font-bold text-xs flex items-center hover:bg-primary/5 px-4 py-2 rounded-full transition-all border border-primary/10">
+                                View Digital Map <ExternalLink className="w-3.5 h-3.5 ml-2" />
+                              </button>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                              {simulationResult.recommendations.map((facility, i) => (
+                                <div key={i} className="p-5 border-2 border-gray-100 rounded-2xl hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group relative overflow-hidden">
+                                  <div className="flex items-center justify-between mb-4">
+                                    <div className="p-2 bg-primary/10 text-primary rounded-xl group-hover:scale-110 transition-transform">
+                                      <Hospital className="w-5 h-5" />
+                                    </div>
+                                    <CheckCircle2 className="w-5 h-5 text-primary fill-primary/10" />
+                                  </div>
+                                  <p className="font-display font-bold text-sm mb-1 group-hover:text-primary transition-colors">{facility.name}</p>
+                                  <p className="text-[10px] font-bold text-on-surface-variant/70 uppercase tracking-widest mb-4">{facility.competency}</p>
+                                  <div className="flex items-center gap-4 pt-4 border-t border-gray-100">
+                                    <div className="flex items-center gap-1.5 text-[10px] font-black text-on-surface">
+                                      <Star className="w-3 h-3 text-orange-400 fill-orange-400" />
+                                      {facility.rating}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-[10px] font-black text-on-surface/60">
+                                      <MapPin className="w-3 h-3" />
+                                      {facility.distance}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+              </motion.div>
+            )}
+
+            {activeTab === 'claims' && (
+              <ClaimsHistoryView claims={claims} />
+            )}
+
+            {activeTab !== 'dashboard' && activeTab !== 'claims' && (
+              <motion.div
+                key="other"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="flex flex-col items-center justify-center py-20 bg-white rounded-[2.5rem] border border-gray-100 shadow-sm"
+              >
+                <div className="p-6 bg-gray-50 rounded-full mb-6">
+                  <Settings className="w-12 h-12 text-gray-300 animate-pulse" />
+                </div>
+                <h3 className="font-display text-2xl font-bold text-on-surface">Tab under construction</h3>
+                <p className="text-on-surface-variant mt-2 max-w-sm text-center">We're building something great here. Please check back later or use the Dashboard.</p>
+                <button 
+                  onClick={() => setActiveTab('dashboard')}
+                  className="mt-8 bg-primary text-white px-8 py-3 rounded-xl font-bold hover:opacity-90 transition-all"
+                >
+                  Back to Dashboard
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Footer Area */}
+          <footer className="pt-12 pb-16 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div className="flex items-center gap-4">
+              <ShieldCheck className="text-primary/40 w-6 h-6" />
+              <p className="text-sm font-medium text-on-surface-variant/70">
+                © 2024 Insure Help Digital. All coverage information is periodically synced.
+              </p>
+            </div>
+            <div className="flex gap-8">
+              {['Privacy Policy', 'Terms of Service', 'Security Trust'].map((link) => (
+                <a key={link} href="#" className="text-sm font-bold text-on-surface-variant/50 hover:text-primary hover:underline transition-all uppercase tracking-widest">
+                  {link}
+                </a>
+              ))}
+            </div>
+          </footer>
+        </div>
+
+        {/* Mobile Navbar */}
+        <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center py-4 bg-white border-t border-gray-100 md:hidden z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]" role="navigation" aria-label="Mobile Navigation">
+           <button 
+             onClick={() => handleTabChange('dashboard')} 
+             className="flex flex-col items-center gap-1 group focus:outline-none"
+             aria-label="Go to Dashboard"
+             aria-current={activeTab === 'dashboard' ? 'page' : undefined}
+           >
+             <LayoutDashboard className={cn("w-6 h-6", activeTab === 'dashboard' ? "text-primary" : "text-gray-400 group-hover:text-primary")} />
+             <span className={cn("text-[10px] font-bold uppercase", activeTab === 'dashboard' ? "text-primary" : "text-gray-400")}>Home</span>
+           </button>
+           <button 
+             onClick={() => handleTabChange('claims')} 
+             className="flex flex-col items-center gap-1 group focus:outline-none"
+             aria-label="View Claims History"
+             aria-current={activeTab === 'claims' ? 'page' : undefined}
+           >
+             <History className={cn("w-6 h-6", activeTab === 'claims' ? "text-primary" : "text-gray-400 group-hover:text-primary")} />
+             <span className={cn("text-[10px] font-bold uppercase", activeTab === 'claims' ? "text-primary" : "text-gray-400")}>Claims</span>
+           </button>
+           <button 
+             onClick={handleScan} 
+             disabled={isScanning} 
+             className="flex flex-col items-center gap-1 -mt-8 group focus:outline-none"
+             aria-label={isScanning ? "Processing document" : "Scan new policy document"}
+           >
+             <div className="p-4 bg-primary rounded-full shadow-lg shadow-primary/40 text-white active:scale-95 transition-transform group-focus:ring-4 group-focus:ring-primary/40">
+                {isScanning ? <Loader2 className="w-6 h-6 animate-spin" /> : <CloudUpload className="w-6 h-6" />}
+             </div>
+             <span className="text-[10px] font-bold text-primary uppercase mt-1">{isScanning ? 'Adding...' : 'Scan'}</span>
+           </button>
+           <button 
+             onClick={() => handleTabChange('policies')} 
+             className="flex flex-col items-center gap-1 group focus:outline-none"
+             aria-label="View All Policies"
+             aria-current={activeTab === 'policies' ? 'page' : undefined}
+           >
+             <FileText className={cn("w-6 h-6", activeTab === 'policies' ? "text-primary" : "text-gray-400 group-hover:text-primary")} />
+             <span className={cn("text-[10px] font-bold uppercase", activeTab === 'policies' ? "text-primary" : "text-gray-400")}>Policies</span>
+           </button>
+           <button 
+             onClick={() => handleTabChange('settings')} 
+             className="flex flex-col items-center gap-1 group focus:outline-none"
+             aria-label="Open Settings Menu"
+             aria-current={activeTab === 'settings' ? 'page' : undefined}
+           >
+             <Settings className={cn("w-6 h-6", activeTab === 'settings' ? "text-primary" : "text-gray-400 group-hover:text-primary")} />
+             <span className={cn("text-[10px] font-bold uppercase", activeTab === 'settings' ? "text-primary" : "text-gray-400")}>Menu</span>
+           </button>
+        </nav>
+      </main>
+    </div>
+  );
+}
