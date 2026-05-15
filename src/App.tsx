@@ -34,7 +34,9 @@ import {
   MapPin,
   CheckCircle2,
   Loader2,
-  Plus
+  Plus,
+  CreditCard,
+  Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -77,6 +79,16 @@ interface ClaimHistoryItem {
   status: 'Approved' | 'Pending' | 'Rejected';
 }
 
+interface RecommendedPlan {
+  id: string;
+  name: string;
+  issuer: string;
+  premium: string;
+  benefitTitle: string;
+  benefitValue: string;
+  tag: string;
+}
+
 // --- Constants & API ---
 
 const INITIAL_POLICIES: Policy[] = [
@@ -94,6 +106,12 @@ const INITIAL_CLAIMS: ClaimHistoryItem[] = [
   { id: 'c4', policyName: 'Elite Health Care', condition: 'Diagnostic X-Ray', date: '2024-03-15', amount: '$220', status: 'Pending' },
 ];
 
+const RECOMMENDED_PLANS: RecommendedPlan[] = [
+  { id: 'rp1', name: 'Infinite CI Protector', issuer: 'Income Insurance', premium: '$45/mo', benefitTitle: 'CI Coverage', benefitValue: '$350,000', tag: 'Top Choice' },
+  { id: 'rp2', name: 'Life Premium Plus', issuer: 'AIA', premium: '$52/mo', benefitTitle: 'CI Coverage', benefitValue: '$500,000', tag: 'Best Value' },
+  { id: 'rp3', name: 'Smart Health Critical', issuer: 'Great Eastern', premium: '$38/mo', benefitTitle: 'CI Coverage', benefitValue: '$250,000', tag: 'Starter' },
+];
+
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 // --- Components ---
@@ -103,6 +121,7 @@ const Sidebar = ({ activeTab, onTabChange }: { activeTab: string, onTabChange: (
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'policies', label: 'My Policies', icon: FileText },
     { id: 'claims', label: 'Claims History', icon: History },
+    { id: 'pricing', label: 'Pricing Plan', icon: CreditCard },
     { id: 'settings', label: 'Settings', icon: Settings },
     { id: 'help', label: 'Help Center', icon: HelpCircle },
   ];
@@ -228,12 +247,180 @@ const ClaimsHistoryView = ({ claims }: { claims: ClaimHistoryItem[] }) => (
   </motion.div>
 );
 
+const PricingView = () => {
+  const plans = [
+    {
+      name: 'Free',
+      price: '$0',
+      description: 'Ideal for basic policy tracking.',
+      features: ['Up to 2 policies', 'Basic AI analysis', 'Manual claim check', 'Mobile App access'],
+      buttonText: 'Current Plan',
+      isPopular: false,
+      color: 'bg-gray-100 text-gray-800'
+    },
+    {
+      name: 'Basic',
+      price: '$9',
+      description: 'Perfect for families with multiple policies.',
+      features: ['Up to 10 policies', 'Advanced AI Assistant', 'Automatic claim filing', 'Priority Support', 'Family Sharing'],
+      buttonText: 'Upgrade to Basic',
+      isPopular: true,
+      color: 'bg-primary text-white shadow-xl shadow-primary/20'
+    },
+    {
+      name: 'Advanced',
+      price: '$29',
+      description: 'Comprehensive coverage protection.',
+      features: ['Unlimited policies', 'Full Legal Support', '24/7 Medical Concierge', 'Wealth Integration', 'Custom Gap Analysis'],
+      buttonText: 'Upgrade to Advanced',
+      isPopular: false,
+      color: 'bg-gray-900 text-white'
+    }
+  ];
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-12"
+    >
+      <div className="text-center max-w-2xl mx-auto">
+        <h2 className="font-display text-4xl font-extrabold text-on-surface">Secure Your Future</h2>
+        <p className="text-on-surface-variant mt-4 text-lg">Choose the right plan to maximize your coverage and minimize out-of-pocket expenses.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pb-12">
+        {plans.map((plan, idx) => (
+          <motion.div
+            key={idx}
+            whileHover={{ y: -8 }}
+            className={cn(
+              "p-8 rounded-[2.5rem] border flex flex-col items-center text-center transition-all",
+              plan.isPopular ? "border-primary bg-white ring-4 ring-primary/5" : "border-gray-200 bg-white"
+            )}
+          >
+            {plan.isPopular && (
+              <span className="bg-primary text-white text-[10px] font-black uppercase tracking-[0.2em] px-4 py-1.5 rounded-full mb-6">Most Popular</span>
+            )}
+            <h3 className="font-display text-2xl font-bold mb-2">{plan.name}</h3>
+            <div className="flex items-baseline gap-1 mb-4">
+              <span className="text-4xl font-black">{plan.price}</span>
+              <span className="text-on-surface-variant font-bold">/mo</span>
+            </div>
+            <p className="text-sm text-on-surface-variant mb-8 min-h-[40px]">{plan.description}</p>
+            
+            <div className="w-full space-y-4 mb-10 flex-1">
+              {plan.features.map((feature, i) => (
+                <div key={i} className="flex items-center gap-3 text-left">
+                  <div className="p-1 bg-green-50 rounded-full">
+                    <Check className="w-3.5 h-3.5 text-green-600" />
+                  </div>
+                  <span className="text-sm font-medium text-on-surface-variant">{feature}</span>
+                </div>
+              ))}
+            </div>
+
+            <button className={cn(
+              "w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98]",
+              plan.color,
+              plan.name === 'Free' ? "cursor-default opacity-50" : "hover:opacity-90"
+            )}>
+              {plan.buttonText}
+            </button>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
+  );
+};
+
+const RecommendationsModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => (
+  <AnimatePresence>
+    {isOpen && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        />
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          className="relative bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        >
+          <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+            <div>
+              <h3 className="font-display text-2xl font-bold text-on-surface">Recommended for You</h3>
+              <p className="text-sm text-on-surface-variant mt-1">Based on your identified coverage gap in Critical Illness.</p>
+            </div>
+            <button 
+              onClick={onClose}
+              className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+            >
+              <XCircle className="w-6 h-6 text-on-surface-variant" />
+            </button>
+          </div>
+          
+          <div className="p-8 overflow-y-auto space-y-4">
+            {RECOMMENDED_PLANS.map((plan) => (
+              <motion.div 
+                key={plan.id}
+                whileHover={{ x: 4 }}
+                className="p-5 border border-gray-100 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-primary hover:shadow-md transition-all group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-primary/5 rounded-xl flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                       <span className="font-bold text-on-surface">{plan.name}</span>
+                       <span className="text-[10px] font-black uppercase text-primary bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10 tracking-widest">{plan.tag}</span>
+                    </div>
+                    <p className="text-xs text-on-surface-variant mt-0.5">{plan.issuer}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-8 w-full sm:w-auto justify-between sm:justify-start">
+                  <div className="text-right sm:text-left">
+                    <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">{plan.benefitTitle}</p>
+                    <p className="text-sm font-black text-on-surface">{plan.benefitValue}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-black text-primary">{plan.premium}</p>
+                    <button className="text-[11px] font-black text-primary hover:underline flex items-center gap-1 uppercase tracking-tighter">
+                      Apply Now <ChevronRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+          
+          <div className="p-8 border-t border-gray-100 bg-gray-50/30">
+            <div className="flex items-start gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/10">
+              <Zap className="w-5 h-5 text-primary mt-1" />
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                <span className="font-bold text-primary">Pro-tip:</span> These plans are pre-qualified based on your current age and existing health declarations. You can potentially waive medical check-ups for policies with the <span className="font-bold">Top Choice</span> tag.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    )}
+  </AnimatePresence>
+);
+
 const Header = ({ activeTab }: { activeTab: string }) => {
   const getTitle = () => {
     switch (activeTab) {
       case 'dashboard': return 'Dashboard';
       case 'policies': return 'My Policies';
       case 'claims': return 'Claims History';
+      case 'pricing': return 'Pricing Plans';
       case 'settings': return 'Settings';
       case 'help': return 'Help Center';
       default: return 'Insure Help';
@@ -325,6 +512,7 @@ export default function App() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState<ClaimSimulationResult | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [isRecommendationsOpen, setIsRecommendationsOpen] = useState(false);
 
   const handleScan = () => {
     setIsScanning(true);
@@ -634,7 +822,10 @@ export default function App() {
                       <div className="relative z-10">
                         <p className="font-bold text-sm text-primary">Low Critical Illness Coverage</p>
                         <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">Current: $100k. Recommended: $450k (based on income).</p>
-                        <button className="flex items-center gap-1 mt-3 font-bold text-xs text-primary group-hover:underline">
+                        <button 
+                          onClick={() => setIsRecommendationsOpen(true)}
+                          className="flex items-center gap-1 mt-3 font-bold text-xs text-primary group-hover:underline"
+                        >
                           See Recommended Plans <ChevronRight className="w-3 h-3" />
                         </button>
                       </div>
@@ -840,7 +1031,11 @@ export default function App() {
               <ClaimsHistoryView claims={claims} />
             )}
 
-            {activeTab !== 'dashboard' && activeTab !== 'claims' && (
+            {activeTab === 'pricing' && (
+              <PricingView />
+            )}
+
+            {activeTab !== 'dashboard' && activeTab !== 'claims' && activeTab !== 'pricing' && (
               <motion.div
                 key="other"
                 initial={{ opacity: 0, y: 10 }}
@@ -932,6 +1127,10 @@ export default function App() {
            </button>
         </nav>
       </main>
+      <RecommendationsModal 
+        isOpen={isRecommendationsOpen} 
+        onClose={() => setIsRecommendationsOpen(false)} 
+      />
     </div>
   );
 }
